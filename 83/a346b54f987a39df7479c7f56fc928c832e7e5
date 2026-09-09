@@ -1,0 +1,19 @@
+LICENSE
+  s_cd088636eb15e6::t_0287b6fd34e04a 1-21
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "83a346b54f987a39df7479c7f56fc928c832e7e5",
+  "prompts": {},
+  "sessions": {
+    "s_cd088636eb15e6": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "9d4b8ee9-9fcd-4530-886f-71b1feb23eb2",
+        "model": "claude-fable-5-1"
+      },
+      "human_author": "Morten Larsen <mortenl41@gmail.com>"
+    }
+  }
+}
