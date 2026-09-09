@@ -1,0 +1,29 @@
+README.md
+  s_cd088636eb15e6::t_ddd7d2e3ee3af7 1-132
+.claude/hooks/warn-old-bash.test.sh
+  s_cd088636eb15e6::t_01b70b63a7d97b 1-133
+.claude/hooks/put-gnu-tools-on-path.test.sh
+  s_cd088636eb15e6::t_9a9876462d66af 1-374
+.claude/settings.json
+  s_cd088636eb15e6::t_1724e033379517 1-26
+.claude/hooks/put-gnu-tools-on-path.sh
+  s_cd088636eb15e6::t_7a0687fad8c565 1-249
+.claude/hooks/warn-old-bash.sh
+  s_cd088636eb15e6::t_819aa4c4af97c3 1-61
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "e698d341424cc63aa0c1e5a7fd00b8c46a40eae3",
+  "prompts": {},
+  "sessions": {
+    "s_cd088636eb15e6": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "9d4b8ee9-9fcd-4530-886f-71b1feb23eb2",
+        "model": "claude-fable-5-1"
+      },
+      "human_author": "Morten Larsen <mortenl41@gmail.com>"
+    }
+  }
+}
