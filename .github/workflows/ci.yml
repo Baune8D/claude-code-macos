@@ -21,9 +21,12 @@ jobs:
 
       - run: bash --version | head -1
 
+      # Each suite runs even when an earlier one fails, so one red run shows all of them.
       - run: bash .claude/hooks/put-gnu-tools-on-path.test.sh
-      - run: bash .claude/hooks/warn-shell-not-bash.test.sh
-      - run: bash .claude/hooks/warn-old-bash.test.sh
+      - if: ${{ !cancelled() }}
+        run: bash .claude/hooks/warn-shell-not-bash.test.sh
+      - if: ${{ !cancelled() }}
+        run: bash .claude/hooks/warn-old-bash.test.sh
 
   shellcheck:
     runs-on: ubuntu-latest
