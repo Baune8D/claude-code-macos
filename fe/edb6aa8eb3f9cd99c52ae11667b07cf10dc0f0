@@ -1,0 +1,19 @@
+.claude/hooks/put-gnu-tools-on-path.test.sh
+  s_e0a3fc328e1d69::t_6da82c98441a27 36-41,180-182,184
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "feedb6aa8eb3f9cd99c52ae11667b07cf10dc0f0",
+  "prompts": {},
+  "sessions": {
+    "s_e0a3fc328e1d69": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a2cd4ddf-2d1c-4721-990e-2081a53030d1",
+        "model": "claude-fable-5-1"
+      },
+      "human_author": "Morten Larsen <mortenl41@gmail.com>"
+    }
+  }
+}
