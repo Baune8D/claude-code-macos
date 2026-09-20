@@ -33,8 +33,12 @@ mkdir -p "$WORK/mac" "$WORK/linux"
 printf '#!/bin/sh\necho Darwin\n' > "$WORK/mac/uname"
 printf '#!/bin/sh\necho Linux\n' > "$WORK/linux/uname"
 chmod +x "$WORK/mac/uname" "$WORK/linux/uname"
-# Where the suite's own jq is, for the JSON cases; the no-jq case leaves it off PATH.
-JQ_DIR="$(dirname "$(command -v jq)")"
+# Where the suite's own jq is, for the JSON cases; the no-jq case leaves it off PATH. A
+# symlink under WORK rather than jq's own directory: on Linux that is /usr/bin, which the
+# hook treats as the system-tools directory and some cases keep off PATH on purpose.
+JQ_DIR="$WORK/jq"
+mkdir -p "$JQ_DIR"
+ln -s "$(command -v jq)" "$JQ_DIR/jq"
 
 # Fresh prefix and env file per case, so no case sees another's formulas or write.
 fresh() {
@@ -173,9 +177,11 @@ fresh; installed coreutils findutils gnu-sed gnu-tar gnu-which grep; run_hook
 ok_with_hint 'one formula missing' "This session's awk is the macOS build, not GNU."
 expect_dev 'one formula missing' 'GNU tools missing. Fix: brew install gawk'
 
-# The same, without jq on PATH: the agent's line still reaches it as plain stdout.
+# The same, without jq on PATH: the agent's line still reaches it as plain stdout. The
+# hook needs nothing but the fake uname, so PATH is that alone — /bin would bring jq back
+# on a merged-/usr Linux, where it is /usr/bin.
 fresh; installed coreutils gnu-sed
-out=$(env -i PATH="$WORK/mac:/bin" HOMEBREW_PREFIX="$PREFIX" CLAUDE_ENV_FILE="$ENV_FILE" "$BASH_BIN" "$HOOK" 2>"$WORK/stderr" </dev/null)
+out=$(env -i PATH="$WORK/mac" HOMEBREW_PREFIX="$PREFIX" CLAUDE_ENV_FILE="$ENV_FILE" "$BASH_BIN" "$HOOK" 2>"$WORK/stderr" </dev/null)
 STATUS=$?; STDOUT="$out"; STDERR=$(cat "$WORK/stderr")
 [[ "$STATUS" -eq 0 && -z "$STDERR" && "$STDOUT" == "This session's find, xargs, awk, tar, which and grep are the macOS builds, not GNU." ]] && verdict=yes || verdict=no
 pass_if "$verdict" 'two formulas installed, no jq: plain one-line hint' "stdout: $STDOUT / stderr: $STDERR"
