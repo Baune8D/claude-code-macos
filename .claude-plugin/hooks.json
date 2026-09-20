@@ -1,0 +1,26 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/.claude/hooks/put-gnu-tools-on-path.sh\"",
+            "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/.claude/hooks/warn-shell-not-bash.sh\"",
+            "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/.claude/hooks/warn-old-bash.sh\"",
+            "timeout": 5
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -1,0 +1,27 @@
+{
+  "name": "claude-code-macos",
+  "description": "The claude-code-macos plugin: GNU tools and bash 5 for Claude Code's Bash tool on a Mac.",
+  "owner": {
+    "name": "Baune8D",
+    "url": "https://github.com/Baune8D"
+  },
+  "plugins": [
+    {
+      "name": "claude-code-macos",
+      "source": "./",
+      "description": "Gives Claude Code's Bash tool GNU sed, date, stat, awk, tar, which and xargs on a Mac, from Homebrew's gnubin directories, and says so when the Bash tool is not bash 5.",
+      "version": "1.0.0",
+      "author": {
+        "name": "Baune8D"
+      },
+      "category": "tooling",
+      "keywords": [
+        "macos",
+        "bash",
+        "gnu",
+        "coreutils",
+        "homebrew"
+      ]
+    }
+  ]
+}

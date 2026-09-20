@@ -6,11 +6,14 @@ builds.
 
 Two files do it, both under `.claude/`:
 
-- `settings.json` — an `env` block that switches the Bash tool to bash, and two
+- `settings.json` — an `env` block that switches the Bash tool to bash, and three
   `SessionStart` hooks.
 - `hooks/put-gnu-tools-on-path.sh` — puts Homebrew's GNU builds first on the PATH the
-  Bash tool resolves. `hooks/warn-old-bash.sh` says so if the bash that won is still
-  Apple's 3.2.
+  Bash tool resolves. `hooks/warn-shell-not-bash.sh` says so if the Bash tool is not
+  running bash at all, and `hooks/warn-old-bash.sh` says so if the bash that won is
+  still Apple's 3.2.
+
+Install it as a plugin, or copy the files in. [Both are below](#install).
 
 Nothing outside a Claude Code session changes. Your own terminal keeps zsh and the
 macOS tools.
@@ -68,17 +71,54 @@ GNU."), you get the fix ("GNU tools missing. Fix: brew install gnu-sed").
 
 ## Install
 
+Either way, first:
+
 ```sh
 brew install bash coreutils findutils gawk gnu-sed gnu-tar gnu-which grep
 ```
 
-Then copy `.claude/settings.json` and `.claude/hooks/` into your repo, or merge the
-`env` and `hooks.SessionStart` blocks into a `settings.json` you already have. The hook
-commands use `$CLAUDE_PROJECT_DIR`, which Claude Code sets for every hook, so they work
-from any checkout location.
-
 Homebrew's g-prefixed names (`gsed`, `gdate`) are untouched and your terminal still
-resolves `sed` to `/usr/bin/sed`. The hook only reaches the Bash tool.
+resolves `sed` to `/usr/bin/sed`. Nothing here reaches past the Bash tool.
+
+### As a plugin
+
+Once, for every repository you open:
+
+```
+/plugin marketplace add Baune8D/claude-code-macos
+/plugin install claude-code-macos@claude-code-macos
+```
+
+Then add the `env` block to `~/.claude/settings.json` by hand:
+
+```json
+"env": {
+  "CLAUDE_CODE_SHELL": "bash",
+  "SHELL": "bash"
+}
+```
+
+**A plugin cannot do that part.** A plugin manifest carries hooks, commands, agents and
+MCP servers; it has no `env` block, and `CLAUDE_CODE_SHELL` is read before the shell is
+chosen, so no hook can write it either. The plugin delivers the PATH half of the fix;
+the shell stays zsh until that block exists.
+
+Which is what `warn-shell-not-bash.sh` is for. It reads `CLAUDE_CODE_SHELL` — measured
+on 2.1.278, an `env` block reaches a SessionStart hook's own environment — falls back to
+`SHELL` for a Mac whose login shell is already bash, and says one line to each audience
+when neither is bash. With the block in place it never speaks.
+
+### As files in a repository
+
+Copy `.claude/settings.json` and `.claude/hooks/` into your repo, or merge the `env` and
+`hooks.SessionStart` blocks into a `settings.json` you already have. The hook commands
+use `$CLAUDE_PROJECT_DIR`, which Claude Code sets for every hook, so they work from any
+checkout location. This is the whole fix in one step, and it travels with the repository
+to everyone who clones it.
+
+Both at once is harmless, not clever: each copy of the hook reads its own PATH, which is
+Claude Code's and carries neither prepend, so both write one. The Bash tool ends up with
+the gnubin directories twice on PATH, resolving to the same builds.
 
 ## Verify
 
@@ -131,6 +171,7 @@ nothing, and the plain names already resolve to GNU there.
 
 ```sh
 bash .claude/hooks/put-gnu-tools-on-path.test.sh
+bash .claude/hooks/warn-shell-not-bash.test.sh
 bash .claude/hooks/warn-old-bash.test.sh
 ```
 
