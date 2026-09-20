@@ -27,10 +27,25 @@ fake_bash() {
     chmod +x "$FAKE/bash"
 }
 
-# run_hook [PATH=...] — runs the hook under a PATH that starts with the fake bash.
+# other_bash <version line> — a bash somewhere else entirely, under its own name, for the
+# cases where CLAUDE_CODE_SHELL names a shell by absolute path and PATH holds a different
+# one. Sets OTHER to that path.
+other_bash() {
+    local dir="$WORK/other-$RANDOM$RANDOM"
+    mkdir -p "$dir"
+    printf '#!/bin/sh\necho "%s"\n' "$1" > "$dir/bash"
+    chmod +x "$dir/bash"
+    OTHER="$dir/bash"
+}
+
+# run_hook [PATH=...] [CLAUDE_CODE_SHELL=...] — runs the hook under a PATH that starts with
+# the fake bash. The second argument, when given, is the override Claude Code was told to
+# run; without it the variable is absent, which is the bare-name default.
 run_hook() {
-    local out
-    out=$(env -i PATH="${1:-$FAKE:$JQ_DIR:/usr/bin:/bin}" "$BASH_BIN" "$HOOK" 2>"$WORK/stderr" </dev/null)
+    local out vars=()
+    [[ -n "${2:-}" ]] && vars+=("CLAUDE_CODE_SHELL=$2")
+    out=$(env -i PATH="${1:-$FAKE:$JQ_DIR:/usr/bin:/bin}" "${vars[@]}" \
+        "$BASH_BIN" "$HOOK" 2>"$WORK/stderr" </dev/null)
     STATUS=$?
     STDOUT="$out"
     STDERR=$(cat "$WORK/stderr")
@@ -122,6 +137,37 @@ expect_dev 'bash 4.4' 'bash 4 at' 'brew install bash'
 fake_bash 'something that is not a version line'; run_hook
 ok_with_hint 'unparseable --version' 'unreadable' 'not 5'
 expect_dev 'unparseable --version' 'reports no version' 'brew install bash'
+
+# --- CLAUDE_CODE_SHELL names the shell ------------------------------------------------
+
+# The case this hook was blind to: the override is an absolute path to Apple's bash, while
+# PATH's first bash is Homebrew's 5. Asking PATH would report the 5 and say nothing; the
+# Bash tool runs the 3.2.
+fake_bash 'GNU bash, version 5.3.15(1)-release (aarch64-apple-darwin25)'
+other_bash 'GNU bash, version 3.2.57(1)-release (arm64-apple-darwin25)'
+run_hook '' "$OTHER"
+ok_with_hint 'override to an old bash by path' 'not 5' '3.2.57'
+expect_dev 'override to an old bash by path' "$OTHER" 'need 5'
+
+# And the other way: a modern bash named by path is fine however old PATH's bash is.
+fake_bash 'GNU bash, version 3.2.57(1)-release (arm64-apple-darwin25)'
+other_bash 'GNU bash, version 5.3.15(1)-release (aarch64-apple-darwin25)'
+run_hook '' "$OTHER"
+ok_and_silent 'override to a modern bash by path'
+
+# A bare name is resolved through PATH, which is the lookup Claude Code makes for it and
+# the one this hook made before the variable was read at all.
+fake_bash 'GNU bash, version 3.2.57(1)-release (arm64-apple-darwin25)'
+run_hook '' bash
+ok_with_hint 'bare-name override' 'not 5' '3.2.57'
+expect_dev 'bare-name override' "$FAKE/bash" 'need 5'
+
+# An override naming a shell that is not there reports no version rather than passing for
+# a 5, and the developer's line names the value, which is the thing to correct.
+fake_bash 'GNU bash, version 5.3.15(1)-release (aarch64-apple-darwin25)'
+run_hook '' /nonexistent/bash
+ok_with_hint 'override to a missing shell' 'unreadable' 'not 5'
+expect_dev 'override to a missing shell' '/nonexistent/bash' 'reports no version'
 
 # Without jq the line still reaches the agent as plain text. The hook needs nothing but
 # the bash it is asking about, so PATH is the fake alone.
