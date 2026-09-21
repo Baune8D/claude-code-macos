@@ -1,0 +1,19 @@
+README.md
+  s_92d54e7513214a::t_e6108e1937b0f5 29-32
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "14da74f5449441913247580bbf8f513137b807df",
+  "prompts": {},
+  "sessions": {
+    "s_92d54e7513214a": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "dadb9747-cc8a-4cb6-9f55-83711889ddeb",
+        "model": "claude-fable-5-1"
+      },
+      "human_author": "Morten Larsen <mortenl41@gmail.com>"
+    }
+  }
+}
