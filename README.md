@@ -26,9 +26,10 @@ until a command fails halfway through a task:
 1. **The Bash tool is zsh.** Claude Code picks the login shell, which is zsh on every
    Mac since Catalina. Anything the model has learned about bash — `mapfile`,
    `${x^^}`, word splitting, glob behaviour — is subtly off.
-2. **The userland is BSD.** `sed -i 's/a/b/' file` creates a backup file called
-   `file-e`. `date -d yesterday` is an error. `sed -E 's/\s+/_/'` does not match.
-   `stat -c %s` is an error. The model writes the GNU form, because that is what
+2. **The userland is BSD.** `sed -i -e 's/a/b/' file` edits the file, exits 0 and leaves
+   a backup called `file-e` beside it, because BSD `sed -i` takes the next argument as
+   the backup suffix. `date -d yesterday` is an error. `sed -E 's/\s+/_/'` does not
+   match. `stat -c %s` is an error. The model writes the GNU form, because that is what
    almost all shell on the internet is, and then patches around the failure.
 
 And the obvious fix does not work. Putting `PATH` exports in `~/.zprofile` or
