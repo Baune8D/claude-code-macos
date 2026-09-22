@@ -65,6 +65,14 @@ export PATH="/opt/homebrew/opt/coreutils/libexec/gnubin:...:${PATH}"
 Only the gnubin directories of formulas that are actually installed go on PATH, in a
 fixed order, and only when they are not already ahead of `/usr/bin`.
 
+That path is the Apple Silicon one. On an Intel Mac, or with an x86_64 Homebrew under
+Rosetta, the prefix is `/usr/local`, and a PATH entry pointing at a directory that is not
+there fails quietly: `sed` stays BSD and nothing says so. The hook detects the prefix
+instead of hardcoding it, from `HOMEBREW_PREFIX` when set and otherwise by probing
+`/opt/homebrew` and then `/usr/local`. It probes the filesystem rather than asking `brew`
+because a hook launched from the desktop app or an IDE does not necessarily have `brew`
+on PATH either.
+
 The hook is silent when it succeeds. It speaks once, at session start, when it cannot
 deliver: a formula missing, no Homebrew, or a Claude Code too old to supply
 `CLAUDE_ENV_FILE`. The agent gets the fact ("This session's sed is the macOS build, not
