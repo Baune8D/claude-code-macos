@@ -32,12 +32,16 @@ until a command fails halfway through a task:
    match. `stat -c %s` is an error. The model writes the GNU form, because that is what
    almost all shell on the internet is, and then patches around the failure.
 
-And the obvious fix does not work. Putting `PATH` exports in `~/.zprofile` or
-`~/.bashrc` has no effect on the Bash tool. Claude Code writes a shell snapshot at
-session start and replays it before every Bash call, and the `export PATH` line in that
-snapshot is written from Claude Code's **own process environment**, not from the shell
-the snapshot was captured in. Measured on 2.1.263: a profile guard fired in the capture
-shell and the snapshot still came out without the directory it added.
+And the obvious fix does not do what you want. Your profile does reach the Bash tool,
+but only through the terminal that launched `claude`, which inherited its PATH. So an
+export there changes `sed` for everything in that terminal, not just for Claude Code.
+Guarding it with `CLAUDECODE` doesn't help: that variable isn't set in your terminal,
+and although Claude Code runs your profile again with `CLAUDECODE=1` when it captures
+its shell snapshot, it writes the snapshot's `export PATH` from its own inherited
+environment and drops anything that run added. The snapshot is replayed before every
+Bash call. Measured on 2.1.282, in both bash and zsh: the capture shell sourced the rc
+file with `CLAUDECODE=1` set, and neither a guarded nor an unguarded PATH prepend in it
+reached the Bash tool.
 
 ## The fix
 
