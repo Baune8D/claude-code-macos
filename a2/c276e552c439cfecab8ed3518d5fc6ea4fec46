@@ -1,0 +1,19 @@
+README.md
+  s_4dc734ca3b45d7::t_36bfd767e47d55 35-44
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "a2c276e552c439cfecab8ed3518d5fc6ea4fec46",
+  "prompts": {},
+  "sessions": {
+    "s_4dc734ca3b45d7": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "76f1f08e-b170-4540-943f-7f3269c6f754",
+        "model": "unknown"
+      },
+      "human_author": "Morten Larsen <mortenl41@gmail.com>"
+    }
+  }
+}
