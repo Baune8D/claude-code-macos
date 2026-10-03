@@ -67,20 +67,31 @@ set -u
 # The formulas whose gnubin goes on PATH, and the ones the hint asks to `brew install`.
 formulas=(coreutils findutils gawk gnu-sed gnu-tar gnu-which grep)
 
-# The commands an agent actually types from each formula, for the hint. Not exhaustive —
-# coreutils alone is a hundred — just the ones an agent types most.
+# The commands an agent actually types from each formula, one per line, as the executable
+# names a PATH lookup resolves. Not exhaustive — coreutils alone is a hundred — just the
+# ones an agent types most.
+commands_of() {
+    case "$1" in
+        coreutils) printf '%s\n' date stat ;;
+        findutils) printf '%s\n' find xargs ;;
+        gawk) printf '%s\n' awk ;;
+        gnu-sed) printf '%s\n' sed ;;
+        gnu-tar) printf '%s\n' tar ;;
+        gnu-which) printf '%s\n' which ;;
+        grep) printf '%s\n' grep ;;
+        *) printf '%s\n' "$1" ;;
+    esac
+}
+
+# The same commands as the line naming what stayed macOS spells them. A bare `find` or
+# `grep` is Claude Code's bfs or ugrep either way (see the header), so the macOS build of
+# those two is what scripts and an explicit `command find` / `command grep` get, and the
+# line says so rather than calling the bare name macOS.
 tools_of() {
     case "$1" in
-        coreutils) printf 'date stat' ;;
-        findutils) printf 'find xargs' ;;
-        gawk) printf 'awk' ;;
-        gnu-sed) printf 'sed' ;;
-        gnu-tar) printf 'tar' ;;
-        gnu-which) printf 'which' ;;
-        # A bare `grep` is Claude Code's ugrep either way (see the header); what the hint
-        # is about is the build that scripts and an explicit `command grep` get.
-        grep) printf 'grep' ;;
-        *) printf '%s' "$1" ;;
+        findutils) printf '%s\n' 'command find' xargs ;;
+        grep) printf '%s\n' 'command grep' ;;
+        *) commands_of "$1" ;;
     esac
 }
 
@@ -90,25 +101,25 @@ tools_of() {
 # calling them GNU would be wrong.
 gnu_tools_of() {
     case "$1" in
-        findutils) printf 'xargs' ;;
+        findutils) printf '%s\n' xargs ;;
         grep) ;;
-        *) tools_of "$1" ;;
+        *) commands_of "$1" ;;
     esac
 }
 
 # name_tools all|gnu <formula>... — sets TOOLS to "sed, awk and tar" for the commands
 # those formulas provide (all: tools_of, gnu: gnu_tools_of), in list order, and TOOLS_N to
-# how many, so a caller can pick is/are. TOOLS is empty when there are none.
+# how many, so a caller can pick is/are. TOOLS is empty when there are none. The listers
+# print one name per line because a name can hold a space (`command grep`); `while read`
+# rather than `mapfile` keeps this working under Apple's bash 3.2, which warn-old-bash.sh
+# reports but nothing refuses.
 name_tools() {
-    local which="$1" formula list=() joined
+    local which="$1" formula name list=() joined
     shift
     for formula in "$@"; do
-        # shellcheck disable=SC2207  # both print fixed, space-separated command names
-        if [[ "$which" == gnu ]]; then
-            list+=($(gnu_tools_of "$formula"))
-        else
-            list+=($(tools_of "$formula"))
-        fi
+        while IFS= read -r name; do
+            [[ -n "$name" ]] && list+=("$name")
+        done < <(if [[ "$which" == gnu ]]; then gnu_tools_of "$formula"; else tools_of "$formula"; fi)
     done
     TOOLS_N="${#list[@]}"
     if [[ "$TOOLS_N" -eq 0 ]]; then

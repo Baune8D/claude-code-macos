@@ -110,7 +110,7 @@ ok_with_hint() {
     msg=$(printf '%s' "$STDOUT" | jq -r '.systemMessage // ""' 2>/dev/null)
     [[ -n "$ctx" && -n "$msg" && "$ctx" != "$msg" && "$(printf '%s' "$STDOUT" | jq -r '.hookSpecificOutput.hookEventName')" == SessionStart ]] && verdict=yes || verdict=no
     pass_if "$verdict" "$desc: a different line for each audience, as SessionStart JSON" "stdout: $STDOUT"
-    [[ "$ctx" != *$'\n'* && "${#ctx}" -le 160 && "$msg" != *$'\n'* && "${#msg}" -le 200 ]] && verdict=yes || verdict=no
+    [[ "$ctx" != *$'\n'* && "${#ctx}" -le 170 && "$msg" != *$'\n'* && "${#msg}" -le 200 ]] && verdict=yes || verdict=no
     pass_if "$verdict" "$desc: both lines are one line and short" "agent ${#ctx}: $ctx / dev ${#msg}: $msg"
     [[ "$ctx" != *"brew install"* ]] && verdict=yes || verdict=no
     pass_if "$verdict" "$desc: the agent's line carries no install instructions" "ctx: $ctx"
@@ -184,7 +184,7 @@ pass_if "$verdict" 'all formulas installed: the written line, sourced, puts the 
 # A Mac with some of them: only what is there, order kept — and one line saying which
 # commands are GNU and which stayed macOS, with the formulas to install going to the
 # developer, not the ones that are there.
-TWO_INSTALLED="This session's date, stat and sed are the GNU builds, not macOS. This session's find, xargs, awk, tar, which and grep are the macOS builds, not GNU."
+TWO_INSTALLED="This session's date, stat and sed are the GNU builds, not macOS. This session's command find, xargs, awk, tar, which and command grep are the macOS builds, not GNU."
 fresh; installed coreutils gnu-sed; run_hook
 ok_with_hint 'two formulas installed' "$TWO_INSTALLED"
 expect_dev 'two formulas installed' 'brew install findutils gawk gnu-tar gnu-which grep'
@@ -214,13 +214,14 @@ pass_if "$verdict" 'all formulas installed, no jq: plain one-line fact' "stdout:
 
 # grep alone reaches no bare name, so there is nothing GNU to say — only what stayed macOS.
 fresh; installed grep; run_hook
-ok_with_hint 'only grep installed' "This session's date, stat, find, xargs, awk, sed, tar and which are the macOS builds, not GNU."
+ok_with_hint 'only grep installed' "This session's date, stat, command find, xargs, awk, sed, tar and which are the macOS builds, not GNU."
 ctx=$(printf '%s' "$STDOUT" | jq -r '.hookSpecificOutput.additionalContext')
 [[ "$ctx" != *"GNU builds"* && "$ctx" != *"GNU build,"* ]] && verdict=yes || verdict=no
 pass_if "$verdict" 'only grep installed: no empty GNU sentence' "ctx: $ctx"
 
 # Every mix of installed formulas on a Mac: one short line, every tool named exactly once,
-# and `find` and `grep` never called GNU. 148 characters is the longest the list can make.
+# and `find` and `grep` never called GNU. 164 characters is the longest the list can make,
+# with both of those spelled `command find` and `command grep` in the macOS half.
 long_ok=yes; once_ok=yes; findgrep_ok=yes; worst=''
 for ((mask = 0; mask < 128; mask++)); do
     fresh
@@ -231,16 +232,20 @@ for ((mask = 0; mask < 128; mask++)); do
     done
     run_hook
     ctx=$(printf '%s' "$STDOUT" | jq -r '.hookSpecificOutput.additionalContext // ""')
-    [[ -n "$ctx" && "$ctx" != *$'\n'* && "${#ctx}" -le 160 ]] || { long_ok=no; worst="$mask: $ctx"; }
+    [[ -n "$ctx" && "$ctx" != *$'\n'* && "${#ctx}" -le 170 ]] || { long_ok=no; worst="$mask: $ctx"; }
     for tool in date stat xargs awk sed tar which; do
         [[ "$(printf '%s' "$ctx" | command grep -o -w "$tool" | command grep -c .)" -eq 1 ]] || { once_ok=no; worst="$mask $tool: $ctx"; }
     done
     gnu_part="${ctx%%the GNU build*}"
     [[ "$ctx" == *"GNU build"* && ( "$gnu_part" == *find* || "$gnu_part" == *grep* ) ]] && { findgrep_ok=no; worst="$mask: $ctx"; }
+    # Where they stayed macOS, they are named as what reaches that build: the bare names
+    # are Claude Code's own.
+    bare="${ctx//command find/}"; bare="${bare//command grep/}"
+    [[ "$bare" == *find* || "$bare" == *grep* ]] && { findgrep_ok=no; worst="$mask: $ctx"; }
 done
-pass_if "$long_ok" 'every formula mix: one line of at most 160 characters' "$worst"
+pass_if "$long_ok" 'every formula mix: one line of at most 170 characters' "$worst"
 pass_if "$once_ok" 'every formula mix: each tool named exactly once' "$worst"
-pass_if "$findgrep_ok" 'every formula mix: find and grep never called GNU' "$worst"
+pass_if "$findgrep_ok" 'every formula mix: find and grep never called GNU, and called command find / command grep when macOS' "$worst"
 
 # Homebrew has gnubin directories the list does not name — inetutils shadows ping,
 # hostname and telnet, libtool its own two — and they must stay off PATH.
@@ -281,13 +286,13 @@ expect_nothing_written 'HOMEBREW_PREFIX pointing nowhere: writes nothing, no fal
 # On a Mac, no Homebrew is the un-onboarded developer: every tool is the macOS build, and
 # the hint says so and names all seven formulas.
 fresh; rmdir "$PREFIX/opt"; run_hook
-ok_with_hint 'no Homebrew prefix on a Mac' 'date, stat, find, xargs, awk, sed, tar, which and grep'
+ok_with_hint 'no Homebrew prefix on a Mac' 'date, stat, command find, xargs, awk, sed, tar, which and command grep'
 expect_dev 'no Homebrew prefix on a Mac' 'Homebrew is missing. Fix: install it from https://brew.sh'
 expect_nothing_written 'no Homebrew prefix on a Mac: writes nothing'
 
 # Homebrew without any of the formulas — a fresh Mac before `brew install`.
 fresh; installed inetutils; run_hook
-ok_with_hint 'Homebrew without the GNU formulas' 'date, stat, find, xargs, awk, sed, tar, which and grep'
+ok_with_hint 'Homebrew without the GNU formulas' 'date, stat, command find, xargs, awk, sed, tar, which and command grep'
 expect_dev 'Homebrew without the GNU formulas' 'brew install coreutils findutils gawk gnu-sed gnu-tar gnu-which grep'
 expect_nothing_written 'Homebrew without the GNU formulas: writes nothing'
 
@@ -336,7 +341,7 @@ expect_written 'a look-alike PATH entry does not count as present' "$(gnubin cor
 fresh; installed coreutils
 out=$(env -i PATH="$WORK/mac:$JQ_DIR:/usr/bin:/bin" HOMEBREW_PREFIX="$PREFIX" "$BASH_BIN" "$HOOK" 2>"$WORK/stderr" </dev/null)
 STATUS=$?; STDOUT="$out"; STDERR=$(cat "$WORK/stderr")
-ok_with_hint 'CLAUDE_ENV_FILE unset on a Mac' 'date, stat, find, xargs, awk, sed, tar, which and grep'
+ok_with_hint 'CLAUDE_ENV_FILE unset on a Mac' 'date, stat, command find, xargs, awk, sed, tar, which and command grep'
 expect_dev 'CLAUDE_ENV_FILE unset on a Mac' 'too old for these hooks. Fix: claude update'
 expect_nothing_written 'CLAUDE_ENV_FILE unset on a Mac: touches no file'
 
@@ -359,7 +364,7 @@ fresh; installed coreutils
 out=$(printf '{"hook_event_name":"SessionStart","source":"resume"}' \
     | env -i PATH="$WORK/mac:$JQ_DIR:/usr/bin:/bin" HOMEBREW_PREFIX="$PREFIX" CLAUDE_ENV_FILE="$ENV_FILE" "$BASH_BIN" "$HOOK" 2>"$WORK/stderr")
 STATUS=$?; STDOUT="$out"; STDERR=$(cat "$WORK/stderr")
-ok_with_hint 'with a SessionStart payload on stdin' 'find, xargs, awk, sed, tar, which and grep'
+ok_with_hint 'with a SessionStart payload on stdin' 'command find, xargs, awk, sed, tar, which and command grep'
 expect_dev 'with a SessionStart payload on stdin' 'brew install findutils gawk gnu-sed gnu-tar gnu-which grep'
 expect_written 'with a SessionStart payload on stdin: still writes' "$(gnubin coreutils)"
 
