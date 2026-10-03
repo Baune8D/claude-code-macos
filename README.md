@@ -77,10 +77,18 @@ instead of hardcoding it, from `HOMEBREW_PREFIX` when set and otherwise by probi
 because a hook launched from the desktop app or an IDE does not necessarily have `brew`
 on PATH either.
 
-The hook is silent when it succeeds. It speaks once, at session start, when it cannot
-deliver: a formula missing, no Homebrew, or a Claude Code too old to supply
-`CLAUDE_ENV_FILE`. The agent gets the fact ("This session's sed is the macOS build, not
-GNU."), you get the fix ("GNU tools missing. Fix: brew install gnu-sed").
+On a Mac the hook also tells the agent, once, at session start: "This session's date,
+stat, xargs, awk, sed, tar and which are the GNU builds, not macOS." Putting the tools on
+PATH is not enough on its own. Claude Code's environment block says `Platform: darwin`,
+and since 2.1.260 its auto-mode and bypass-permissions prompts warn about "sed/awk flags
+that differ between GNU and BSD/macOS". With only that in context, the model reads darwin
+as BSD and writes `sed -i '' …`, which GNU sed rejects. `find` and `grep` are left out of
+the line, because Claude Code answers those two names itself ([below](#what-it-leaves-alone-grep-and-find)).
+
+When it cannot deliver — a formula missing, no Homebrew, or a Claude Code too old to
+supply `CLAUDE_ENV_FILE` — the agent's line also names what stayed macOS ("This session's
+awk is the macOS build, not GNU."), and you get the fix ("GNU tools missing. Fix: brew
+install gawk"). Off a Mac it says nothing.
 
 ## Install
 

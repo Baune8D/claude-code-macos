@@ -41,18 +41,26 @@
 # merely present, behind the system tools, has lost the lookup and is prepended like one
 # that is absent.
 #
-# Silent when it succeeds: SessionStart stdout is appended to the model's context, and a
-# line saying the PATH was arranged costs context on every session and teaches nothing.
-# Inert off a Mac — the images, where the plain names already resolve GNU. Always exits
-# 0: a missing tool is not worth failing a session start over.
+# On a Mac it always tells the agent which commands are GNU, once, at session start —
+# including when it had nothing to write because a parent session or the terminal already
+# arranged the PATH. Silence does not mean "GNU" to the agent. Claude Code's environment
+# block says `Platform: darwin`, and from 2.1.260 the auto-mode and bypass-permissions
+# prompts tell the agent to prefer the edit tools over "sed/awk flags that differ between
+# GNU and BSD/macOS". With both in context and nothing else, the agent read darwin as BSD
+# and wrote `sed -i '' 's/…/…/' file`, which GNU sed rejects by taking the empty string as
+# the script (2.1.288, auto mode). The PATH alone does not make the tools GNU in practice:
+# the agent also has to know they are. The line costs a few dozen tokens per session, and
+# it states a fact about the environment rather than an instruction. Only the commands a
+# bare name reaches are named, so not `find` or `grep` (see above). Inert off a Mac — the
+# images, where `Platform: linux` already says GNU. Always exits 0: a missing tool is not
+# worth failing a session start over.
 #
-# It does speak on a Mac where it cannot deliver — a formula missing, no Homebrew, or a
-# Claude Code that supplies no CLAUDE_ENV_FILE — once, because the agent would otherwise
-# believe a CLAUDE.md's promise that its tools are GNU until `sed -i` or `date -d` fails
-# halfway through something else. The agent's line names the commands that are the macOS
-# builds and no more; the developer's line names the `brew install` to run. It reaches
-# both audiences through the SessionStart JSON: `additionalContext` for the agent,
-# `systemMessage` for the developer. A Mac with all seven formulas never sees it.
+# Where it cannot deliver — a formula missing, no Homebrew, or a Claude Code that supplies
+# no CLAUDE_ENV_FILE — the agent's line also names the commands that stayed the macOS
+# builds, so it does not write GNU syntax for them, and the developer gets a second line
+# with the `brew install` to run. It reaches both audiences through the SessionStart JSON:
+# `additionalContext` for the agent, `systemMessage` for the developer. A Mac with all
+# seven formulas gets the agent's line only.
 
 set -u
 
@@ -76,16 +84,36 @@ tools_of() {
     esac
 }
 
-# name_tools <formula>... — sets TOOLS to "sed, awk and tar" for the commands those
-# formulas provide, in list order, and TOOLS_N to how many, so a caller can pick is/are.
+# The commands from each formula that a bare name in the Bash tool reaches once its gnubin
+# is first on PATH, for the line saying what is GNU. `find` and `grep` are left out: Claude
+# Code's shell functions answer those two names whatever PATH holds (see the header), so
+# calling them GNU would be wrong.
+gnu_tools_of() {
+    case "$1" in
+        findutils) printf 'xargs' ;;
+        grep) ;;
+        *) tools_of "$1" ;;
+    esac
+}
+
+# name_tools all|gnu <formula>... — sets TOOLS to "sed, awk and tar" for the commands
+# those formulas provide (all: tools_of, gnu: gnu_tools_of), in list order, and TOOLS_N to
+# how many, so a caller can pick is/are. TOOLS is empty when there are none.
 name_tools() {
-    local formula list=() joined
+    local which="$1" formula list=() joined
+    shift
     for formula in "$@"; do
-        # shellcheck disable=SC2207  # tools_of prints fixed, space-separated command names
-        list+=($(tools_of "$formula"))
+        # shellcheck disable=SC2207  # both print fixed, space-separated command names
+        if [[ "$which" == gnu ]]; then
+            list+=($(gnu_tools_of "$formula"))
+        else
+            list+=($(tools_of "$formula"))
+        fi
     done
     TOOLS_N="${#list[@]}"
-    if [[ "$TOOLS_N" -eq 1 ]]; then
+    if [[ "$TOOLS_N" -eq 0 ]]; then
+        TOOLS=''
+    elif [[ "$TOOLS_N" -eq 1 ]]; then
         TOOLS="${list[0]}"
     else
         joined=$(printf '%s, ' "${list[@]:0:TOOLS_N-1}")
@@ -96,7 +124,7 @@ name_tools() {
 # agent_line <formula>... — the fact, for the agent: "This session's sed is the macOS
 # build, not GNU." for one command, "... sed, awk and tar are the macOS builds ..." for more.
 agent_line() {
-    name_tools "$@"
+    name_tools all "$@"
     if [[ "$TOOLS_N" -eq 1 ]]; then
         printf "This session's %s is the macOS build, not GNU." "$TOOLS"
     else
@@ -104,15 +132,37 @@ agent_line() {
     fi
 }
 
+# gnu_line <formula>... — the other half of the fact: "This session's date, stat and sed
+# are the GNU builds, not macOS." Prints nothing when those formulas reach no bare name,
+# which is the case for `grep` alone.
+gnu_line() {
+    name_tools gnu "$@"
+    if [[ "$TOOLS_N" -eq 1 ]]; then
+        printf "This session's %s is the GNU build, not macOS." "$TOOLS"
+    elif [[ "$TOOLS_N" -gt 1 ]]; then
+        printf "This session's %s are the GNU builds, not macOS." "$TOOLS"
+    fi
+}
+
 # hint <for the agent> <for the developer> — one short line each. The agent gets the fact
-# and nothing else: it has the portable forms in CLAUDE.md. The developer gets a setup
-# problem and the command that fixes it, and nothing about which tool family is which —
-# that distinction is the agent's concern, not theirs. Without jq only the agent's line
-# goes out, as plain stdout, which is the audience stdout reaches.
+# and nothing else. The developer gets a setup problem and the command that fixes it, and
+# nothing about which tool family is which — that distinction is the agent's concern, not
+# theirs. Without jq only the agent's line goes out, as plain stdout, which is the
+# audience stdout reaches.
 hint() {
     if command -v jq >/dev/null 2>&1; then
         jq -n --arg ctx "$1" --arg msg "$2" \
             '{hookSpecificOutput: {hookEventName: "SessionStart", additionalContext: $ctx}, systemMessage: $msg}'
+    else
+        printf '%s\n' "$1"
+    fi
+}
+
+# tell <for the agent> — the agent's line alone, when there is nothing for the developer
+# to fix.
+tell() {
+    if command -v jq >/dev/null 2>&1; then
+        jq -n --arg ctx "$1" '{hookSpecificOutput: {hookEventName: "SessionStart", additionalContext: $ctx}}'
     else
         printf '%s\n' "$1"
     fi
@@ -177,6 +227,7 @@ already_wins() {
 }
 
 prepend=''
+present=()
 missing=()
 for formula in "${formulas[@]}"; do
     gnubin="$prefix/opt/$formula/libexec/gnubin"
@@ -184,6 +235,7 @@ for formula in "${formulas[@]}"; do
         missing+=("$formula")
         continue
     fi
+    present+=("$formula")
     already_wins "$gnubin" && continue
     prepend="${prepend:+$prepend:}$gnubin"
 done
@@ -192,8 +244,18 @@ if [[ -n "$prepend" ]]; then
     printf "export PATH=\"%s:\${PATH}\"\n" "$prepend" >> "$CLAUDE_ENV_FILE"
 fi
 
-if [[ "$on_mac" == yes && "${#missing[@]}" -gt 0 ]]; then
-    hint "$(agent_line "${missing[@]}")" "GNU tools missing. Fix: brew install ${missing[*]}"
+# Present counts whether this run prepended it or it already won: either way the bare name
+# is GNU for the rest of the session.
+[[ "$on_mac" == yes ]] || exit 0
+
+said=''
+[[ "${#present[@]}" -gt 0 ]] && said=$(gnu_line "${present[@]}")
+
+if [[ "${#missing[@]}" -gt 0 ]]; then
+    stayed=$(agent_line "${missing[@]}")
+    hint "${said:+$said }$stayed" "GNU tools missing. Fix: brew install ${missing[*]}"
+elif [[ -n "$said" ]]; then
+    tell "$said"
 fi
 
 exit 0

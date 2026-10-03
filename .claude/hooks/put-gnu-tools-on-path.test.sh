@@ -13,9 +13,10 @@
 # The silent cases matter as much as the ones that write. This hook fires at the top of
 # every session, in every checkout on every machine, and a stray line in the env
 # file — in a pod with no Homebrew, in a terminal that already had the tools — is sourced
-# by every Bash call for the rest of that session. And the hint it emits when a formula
-# is missing lands in the model's context, so it has to appear only on a Mac, only when
-# something is missing, and name the right thing.
+# by every Bash call for the rest of that session. And what it prints lands in the
+# model's context, so it has to appear only on a Mac, and name the right thing: the
+# commands that are GNU, the ones that stayed macOS, and never `find` or `grep` as GNU,
+# because Claude Code's own functions answer those two names.
 
 set -u
 
@@ -119,6 +120,24 @@ ok_with_hint() {
     done
 }
 
+# ok_with_fact <description> <exact line> — exit 0, nothing on stderr, and on stdout the
+# SessionStart JSON with exactly this line for the agent and nothing for the developer:
+# the tools are in place, so there is nothing for them to fix.
+ok_with_fact() {
+    local desc="$1" expected="$2" ctx
+    [[ "$STATUS" -eq 0 ]] && verdict=yes || verdict=no
+    pass_if "$verdict" "$desc: exits 0" "status $STATUS"
+    [[ -z "$STDERR" ]] && verdict=yes || verdict=no
+    pass_if "$verdict" "$desc: silent on stderr" "stderr: $STDERR"
+    ctx=$(printf '%s' "$STDOUT" | jq -r '.hookSpecificOutput.additionalContext // ""' 2>/dev/null)
+    [[ "$ctx" == "$expected" && "$(printf '%s' "$STDOUT" | jq -r '.hookSpecificOutput.hookEventName')" == SessionStart ]] && verdict=yes || verdict=no
+    pass_if "$verdict" "$desc: tells the agent what is GNU" "stdout: $STDOUT"
+    [[ "$(printf '%s' "$STDOUT" | jq -r 'has("systemMessage")' 2>/dev/null)" == false ]] && verdict=yes || verdict=no
+    pass_if "$verdict" "$desc: says nothing to the developer" "stdout: $STDOUT"
+}
+
+ALL_GNU="This session's date, stat, xargs, awk, sed, tar and which are the GNU builds, not macOS."
+
 # expect_dev <description> <substring> — the developer's line says this.
 expect_dev() {
     local msg
@@ -152,7 +171,7 @@ expect_nothing_written() {
 # All seven, in the order the hook lists them — not the order the file system enumerates
 # in — so which formula wins a name both provide is decided by the list.
 fresh; installed grep gnu-which gnu-tar gnu-sed gawk findutils coreutils; run_hook
-quiet_and_ok 'all formulas installed'
+ok_with_fact 'all formulas installed' "$ALL_GNU"
 expect_written 'all formulas installed: one prepend, in list order' \
     "$(gnubin coreutils):$(gnubin findutils):$(gnubin gawk):$(gnubin gnu-sed):$(gnubin gnu-tar):$(gnubin gnu-which):$(gnubin grep)"
 
@@ -163,18 +182,17 @@ resolved=$(env -i PATH="/usr/bin:/bin" bash --norc --noprofile -c "source '$ENV_
 pass_if "$verdict" 'all formulas installed: the written line, sourced, puts the tools first' "PATH became: $resolved"
 
 # A Mac with some of them: only what is there, order kept — and one line saying which
-# commands stayed macOS, naming the formulas to install, not the ones that are there.
+# commands are GNU and which stayed macOS, with the formulas to install going to the
+# developer, not the ones that are there.
+TWO_INSTALLED="This session's date, stat and sed are the GNU builds, not macOS. This session's find, xargs, awk, tar, which and grep are the macOS builds, not GNU."
 fresh; installed coreutils gnu-sed; run_hook
-ok_with_hint 'two formulas installed' "This session's find, xargs, awk, tar, which and grep are the macOS builds, not GNU."
+ok_with_hint 'two formulas installed' "$TWO_INSTALLED"
 expect_dev 'two formulas installed' 'brew install findutils gawk gnu-tar gnu-which grep'
 expect_written 'two formulas installed: only those two' "$(gnubin coreutils):$(gnubin gnu-sed)"
-ctx=$(printf '%s' "$STDOUT" | jq -r '.hookSpecificOutput.additionalContext')
-[[ "$ctx" != *coreutils* && "$ctx" != *"gnu-sed"* && "$ctx" != *" sed"* ]] && verdict=yes || verdict=no
-pass_if "$verdict" 'two formulas installed: hint does not name what is installed' "ctx: $ctx"
 
 # One formula missing: singular grammar, and nothing about the six that are there.
 fresh; installed coreutils findutils gnu-sed gnu-tar gnu-which grep; run_hook
-ok_with_hint 'one formula missing' "This session's awk is the macOS build, not GNU."
+ok_with_hint 'one formula missing' "This session's date, stat, xargs, sed, tar and which are the GNU builds, not macOS. This session's awk is the macOS build, not GNU."
 expect_dev 'one formula missing' 'GNU tools missing. Fix: brew install gawk'
 
 # The same, without jq on PATH: the agent's line still reaches it as plain stdout. The
@@ -183,9 +201,46 @@ expect_dev 'one formula missing' 'GNU tools missing. Fix: brew install gawk'
 fresh; installed coreutils gnu-sed
 out=$(env -i PATH="$WORK/mac" HOMEBREW_PREFIX="$PREFIX" CLAUDE_ENV_FILE="$ENV_FILE" "$BASH_BIN" "$HOOK" 2>"$WORK/stderr" </dev/null)
 STATUS=$?; STDOUT="$out"; STDERR=$(cat "$WORK/stderr")
-[[ "$STATUS" -eq 0 && -z "$STDERR" && "$STDOUT" == "This session's find, xargs, awk, tar, which and grep are the macOS builds, not GNU." ]] && verdict=yes || verdict=no
+[[ "$STATUS" -eq 0 && -z "$STDERR" && "$STDOUT" == "$TWO_INSTALLED" ]] && verdict=yes || verdict=no
 pass_if "$verdict" 'two formulas installed, no jq: plain one-line hint' "stdout: $STDOUT / stderr: $STDERR"
 expect_written 'two formulas installed, no jq: still writes' "$(gnubin coreutils):$(gnubin gnu-sed)"
+
+# All of them without jq: the agent's line alone, as plain stdout.
+fresh; installed coreutils findutils gawk gnu-sed gnu-tar gnu-which grep
+out=$(env -i PATH="$WORK/mac" HOMEBREW_PREFIX="$PREFIX" CLAUDE_ENV_FILE="$ENV_FILE" "$BASH_BIN" "$HOOK" 2>"$WORK/stderr" </dev/null)
+STATUS=$?; STDOUT="$out"; STDERR=$(cat "$WORK/stderr")
+[[ "$STATUS" -eq 0 && -z "$STDERR" && "$STDOUT" == "$ALL_GNU" ]] && verdict=yes || verdict=no
+pass_if "$verdict" 'all formulas installed, no jq: plain one-line fact' "stdout: $STDOUT / stderr: $STDERR"
+
+# grep alone reaches no bare name, so there is nothing GNU to say — only what stayed macOS.
+fresh; installed grep; run_hook
+ok_with_hint 'only grep installed' "This session's date, stat, find, xargs, awk, sed, tar and which are the macOS builds, not GNU."
+ctx=$(printf '%s' "$STDOUT" | jq -r '.hookSpecificOutput.additionalContext')
+[[ "$ctx" != *"GNU builds"* && "$ctx" != *"GNU build,"* ]] && verdict=yes || verdict=no
+pass_if "$verdict" 'only grep installed: no empty GNU sentence' "ctx: $ctx"
+
+# Every mix of installed formulas on a Mac: one short line, every tool named exactly once,
+# and `find` and `grep` never called GNU. 148 characters is the longest the list can make.
+long_ok=yes; once_ok=yes; findgrep_ok=yes; worst=''
+for ((mask = 0; mask < 128; mask++)); do
+    fresh
+    i=0
+    for formula in coreutils findutils gawk gnu-sed gnu-tar gnu-which grep; do
+        (( mask >> i & 1 )) && installed "$formula"
+        i=$((i + 1))
+    done
+    run_hook
+    ctx=$(printf '%s' "$STDOUT" | jq -r '.hookSpecificOutput.additionalContext // ""')
+    [[ -n "$ctx" && "$ctx" != *$'\n'* && "${#ctx}" -le 160 ]] || { long_ok=no; worst="$mask: $ctx"; }
+    for tool in date stat xargs awk sed tar which; do
+        [[ "$(printf '%s' "$ctx" | command grep -o -w "$tool" | command grep -c .)" -eq 1 ]] || { once_ok=no; worst="$mask $tool: $ctx"; }
+    done
+    gnu_part="${ctx%%the GNU build*}"
+    [[ "$ctx" == *"GNU build"* && ( "$gnu_part" == *find* || "$gnu_part" == *grep* ) ]] && { findgrep_ok=no; worst="$mask: $ctx"; }
+done
+pass_if "$long_ok" 'every formula mix: one line of at most 160 characters' "$worst"
+pass_if "$once_ok" 'every formula mix: each tool named exactly once' "$worst"
+pass_if "$findgrep_ok" 'every formula mix: find and grep never called GNU' "$worst"
 
 # Homebrew has gnubin directories the list does not name — inetutils shadows ping,
 # hostname and telnet, libtool its own two — and they must stay off PATH.
@@ -206,7 +261,7 @@ pass_if "$verdict" 'appends after what other hooks wrote' "file: $(tr '\n' '|' <
 # Already on PATH in part — the terminal had some, or a nested session's parent arranged
 # them. Only what is missing is written, so nothing is repeated.
 fresh; installed coreutils findutils gawk gnu-sed gnu-tar gnu-which grep; run_hook PATH="$(gnubin gnu-sed):$WORK/mac:$JQ_DIR:/usr/bin:/bin"
-quiet_and_ok 'some tools already on PATH'
+ok_with_fact 'some tools already on PATH' "$ALL_GNU"
 expect_written 'some tools already on PATH: writes only the missing ones' \
     "$(gnubin coreutils):$(gnubin findutils):$(gnubin gawk):$(gnubin gnu-tar):$(gnubin gnu-which):$(gnubin grep)"
 
@@ -242,12 +297,17 @@ fresh; installed coreutils; run_hook PATH="$WORK/linux:$JQ_DIR:/usr/bin:/bin"
 quiet_and_ok 'missing formulas, not a Mac'
 expect_written 'missing formulas, not a Mac: still writes what is there' "$(gnubin coreutils)"
 
-# All already on PATH — nothing to add, so not even an empty prepend.
+# All already on PATH — nothing to add, so not even an empty prepend. The agent is still
+# told: it cannot see that a parent session or the terminal arranged the PATH.
 fresh; installed coreutils findutils gawk gnu-sed gnu-tar gnu-which grep
 all_on_path="$(gnubin coreutils):$(gnubin findutils):$(gnubin gawk):$(gnubin gnu-sed):$(gnubin gnu-tar):$(gnubin gnu-which):$(gnubin grep)"
 run_hook PATH="$all_on_path:$WORK/mac:$JQ_DIR:/usr/bin:/bin"
-quiet_and_ok 'all tools already on PATH'
+ok_with_fact 'all tools already on PATH' "$ALL_GNU"
 expect_nothing_written 'all tools already on PATH: writes nothing'
+
+# Off a Mac, all installed is still silent: `Platform: linux` already says GNU.
+fresh; installed coreutils findutils gawk gnu-sed gnu-tar gnu-which grep; run_hook PATH="$WORK/linux:$JQ_DIR:/usr/bin:/bin"
+quiet_and_ok 'all formulas installed, not a Mac'
 
 # On PATH but BEHIND /usr/bin is not "already on PATH": that sed has lost the lookup, and
 # the hook has to prepend it as if it were absent.
