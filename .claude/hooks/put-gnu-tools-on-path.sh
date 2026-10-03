@@ -219,13 +219,19 @@ if [[ -z "$prefix" ]]; then
     exit 0
 fi
 
-# already_wins <dir> — true when <dir> sits ahead of /usr/bin and /bin on PATH, so its
-# `sed` is the one a lookup finds already. Only that is a reason to skip: the terminal claude was
-# launched from may have arranged it, or this is a nested session whose parent did. A
-# directory that is on PATH but BEHIND /usr/bin has lost, and is prepended like one that
-# is absent — the duplicate entry it leaves is harmless, the BSD sed it would leave is not.
+# already_wins <dir> <formula> — true when a lookup of each of <formula>'s commands
+# already reaches <dir>: it sits ahead of /usr/bin and /bin on PATH, and no entry before it
+# holds an executable of the same name. Only that is a reason to skip: the terminal claude
+# was launched from may have arranged it, or this is a nested session whose parent did. A
+# directory that is on PATH but BEHIND /usr/bin, or behind some other directory with its
+# own `sed`, has lost, and is prepended like one that is absent — the duplicate entry it
+# leaves is harmless, the other sed it would leave is not. It also keeps the agent's line
+# true: every formula it calls GNU is one whose gnubin a lookup reaches first.
 already_wins() {
-    local dir="$1" entry rest="${PATH:-}"
+    local dir="$1" entry rest="${PATH:-}" cmd cmds=()
+    while IFS= read -r cmd; do
+        cmds+=("$cmd")
+    done < <(commands_of "$2")
     while [[ -n "$rest" ]]; do
         entry="${rest%%:*}"
         [[ "$rest" == *:* ]] && rest="${rest#*:}" || rest=''
@@ -233,6 +239,11 @@ already_wins() {
         # Both are system-tools directories on a Mac: sed and grep live in /usr/bin, date,
         # ls and cp in /bin. Reaching either first means the GNU directory has lost.
         [[ "$entry" == /usr/bin || "$entry" == /bin ]] && return 1
+        # An empty entry is the working directory, which no lookup here should depend on.
+        [[ -n "$entry" ]] || continue
+        for cmd in "${cmds[@]}"; do
+            [[ -f "$entry/$cmd" && -x "$entry/$cmd" ]] && return 1
+        done
     done
     return 1
 }
@@ -247,7 +258,7 @@ for formula in "${formulas[@]}"; do
         continue
     fi
     present+=("$formula")
-    already_wins "$gnubin" && continue
+    already_wins "$gnubin" "$formula" && continue
     prepend="${prepend:+$prepend:}$gnubin"
 done
 

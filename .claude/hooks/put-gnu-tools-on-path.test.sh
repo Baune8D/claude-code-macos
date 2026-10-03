@@ -331,6 +331,47 @@ expect_written 'a gnubin ahead of /usr/bin is not repeated' "$(gnubin coreutils)
 fresh; installed gnu-sed; run_hook PATH="$WORK/mac:$JQ_DIR:$(gnubin gnu-sed):/bin"
 expect_nothing_written 'a gnubin on a PATH without /usr/bin already wins, so nothing is written'
 
+# executable <dir> <name>... — a stand-in command, so a case can put something a PATH lookup
+# would actually resolve in front of, or inside, a gnubin. The empty gnubins above hold
+# nothing, which is enough for what gets written and too little for what wins a lookup.
+executable() {
+    local dir="$1" name
+    shift
+    mkdir -p "$dir"
+    for name in "$@"; do
+        printf '#!/bin/sh\n' > "$dir/$name"
+        chmod +x "$dir/$name"
+    done
+}
+
+# Ahead of /usr/bin is not enough when an entry before the gnubin has a `sed` of its own: a
+# lookup stops there, so the gnubin is prepended like an absent one. Without that the hook
+# would skip it and still tell the agent sed is GNU.
+fresh; installed coreutils findutils gawk gnu-sed gnu-tar gnu-which grep
+executable "$(gnubin gnu-sed)" sed; shadow="$WORK/shadow-$RANDOM"; executable "$shadow" sed
+rest="$(gnubin coreutils):$(gnubin findutils):$(gnubin gawk):$(gnubin gnu-tar):$(gnubin gnu-which):$(gnubin grep)"
+run_hook PATH="$rest:$shadow:$(gnubin gnu-sed):$WORK/mac:$JQ_DIR:/usr/bin:/bin"
+ok_with_fact 'a sed earlier on PATH shadows the gnubin' "$ALL_GNU"
+expect_written 'a sed earlier on PATH shadows the gnubin: it is prepended' "$(gnubin gnu-sed)"
+resolved=$(env -i PATH="$rest:$shadow:$(gnubin gnu-sed):/usr/bin:/bin" bash --norc --noprofile -c "source '$ENV_FILE'; command -v sed")
+[[ "$resolved" == "$(gnubin gnu-sed)/sed" ]] && verdict=yes || verdict=no
+pass_if "$verdict" 'a sed earlier on PATH shadows the gnubin: sourced, sed resolves to the gnubin' "sed resolved to: $resolved"
+
+# The same executable after the gnubin shadows nothing: the gnubin still wins.
+fresh; installed gnu-sed; shadow="$WORK/shadow-$RANDOM"; executable "$shadow" sed
+run_hook PATH="$(gnubin gnu-sed):$shadow:$WORK/mac:$JQ_DIR:/usr/bin:/bin"
+expect_nothing_written 'a sed after the gnubin does not shadow it'
+
+# A file that is not executable is not something a lookup resolves, so it shadows nothing.
+fresh; installed gnu-sed; shadow="$WORK/shadow-$RANDOM"; mkdir -p "$shadow"; : > "$shadow/sed"
+run_hook PATH="$shadow:$(gnubin gnu-sed):$WORK/mac:$JQ_DIR:/usr/bin:/bin"
+expect_nothing_written 'a non-executable sed earlier on PATH does not shadow the gnubin'
+
+# Only the formula's own commands count: an earlier `date` shadows coreutils, not gnu-sed.
+fresh; installed coreutils gnu-sed; shadow="$WORK/shadow-$RANDOM"; executable "$shadow" date
+run_hook PATH="$shadow:$(gnubin coreutils):$(gnubin gnu-sed):$WORK/mac:$JQ_DIR:/usr/bin:/bin"
+expect_written 'an earlier date shadows coreutils only' "$(gnubin coreutils)"
+
 # A directory whose name merely starts with a gnubin path is not that gnubin.
 fresh; installed coreutils; run_hook PATH="$(gnubin coreutils)-old:$WORK/mac:$JQ_DIR:/usr/bin:/bin"
 expect_written 'a look-alike PATH entry does not count as present' "$(gnubin coreutils)"
