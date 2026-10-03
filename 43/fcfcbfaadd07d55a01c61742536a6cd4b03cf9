@@ -1,0 +1,21 @@
+.claude/hooks/put-gnu-tools-on-path.sh
+  s_236baaa129ba75::t_ad05e2179fb38c 70-89,92-94,104,106,112-115,117,120-122
+.claude/hooks/put-gnu-tools-on-path.test.sh
+  s_236baaa129ba75::t_cd21212f4ff273 113,187,217,223-224,235,241-244,246,248,289,295,344,367
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "43fcfcbfaadd07d55a01c61742536a6cd4b03cf9",
+  "prompts": {},
+  "sessions": {
+    "s_236baaa129ba75": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "s_236baaa129ba75",
+        "model": "unknown"
+      },
+      "human_author": "Morten Larsen <mortenl41@gmail.com>"
+    }
+  }
+}
