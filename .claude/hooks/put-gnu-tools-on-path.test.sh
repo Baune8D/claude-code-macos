@@ -372,6 +372,19 @@ fresh; installed coreutils gnu-sed; shadow="$WORK/shadow-$RANDOM"; executable "$
 run_hook PATH="$shadow:$(gnubin coreutils):$(gnubin gnu-sed):$WORK/mac:$JQ_DIR:/usr/bin:/bin"
 expect_written 'an earlier date shadows coreutils only' "$(gnubin coreutils)"
 
+# An empty PATH entry is the current directory, and so is `.`; a relative entry resolves
+# against it too. Whatever directory a later command runs in may hold a `sed`, so any of
+# them ahead of the gnubin counts as a shadow and the gnubin is prepended.
+for entry in '' . bin; do
+    fresh; installed gnu-sed
+    run_hook PATH="$entry:$(gnubin gnu-sed):$WORK/mac:$JQ_DIR:/usr/bin:/bin"
+    expect_written "a relative PATH entry '$entry' before the gnubin: it is prepended" "$(gnubin gnu-sed)"
+done
+
+# The same entry after the gnubin shadows nothing.
+fresh; installed gnu-sed; run_hook PATH="$(gnubin gnu-sed)::$WORK/mac:$JQ_DIR:/usr/bin:/bin"
+expect_nothing_written 'an empty PATH entry after the gnubin does not shadow it'
+
 # A directory whose name merely starts with a gnubin path is not that gnubin.
 fresh; installed coreutils; run_hook PATH="$(gnubin coreutils)-old:$WORK/mac:$JQ_DIR:/usr/bin:/bin"
 expect_written 'a look-alike PATH entry does not count as present' "$(gnubin coreutils)"

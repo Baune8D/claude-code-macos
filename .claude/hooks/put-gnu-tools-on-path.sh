@@ -239,8 +239,10 @@ already_wins() {
         # Both are system-tools directories on a Mac: sed and grep live in /usr/bin, date,
         # ls and cp in /bin. Reaching either first means the GNU directory has lost.
         [[ "$entry" == /usr/bin || "$entry" == /bin ]] && return 1
-        # An empty entry is the working directory, which no lookup here should depend on.
-        [[ -n "$entry" ]] || continue
+        # An empty, `.` or other relative entry is resolved against whatever directory a
+        # command later runs in, which the hook cannot know at session start, so it may
+        # shadow the gnubin and counts as if it did. Prepending costs a duplicate entry.
+        [[ "$entry" == /* ]] || return 1
         for cmd in "${cmds[@]}"; do
             [[ -f "$entry/$cmd" && -x "$entry/$cmd" ]] && return 1
         done

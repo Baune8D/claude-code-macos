@@ -67,7 +67,9 @@ export PATH="/opt/homebrew/opt/coreutils/libexec/gnubin:...:${PATH}"
 ```
 
 Only the gnubin directories of formulas that are actually installed go on PATH, in a
-fixed order, and only when they are not already ahead of `/usr/bin`.
+fixed order, and only when a lookup does not already reach them first: one that sits
+behind `/usr/bin`, behind another directory with its own `sed`, or behind an empty or
+relative PATH entry is prepended.
 
 That path is the Apple Silicon one. On an Intel Mac, or with an x86_64 Homebrew under
 Rosetta, the prefix is `/usr/local`, and a PATH entry pointing at a directory that is not
