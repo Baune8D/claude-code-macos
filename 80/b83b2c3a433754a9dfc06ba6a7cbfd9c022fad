@@ -1,0 +1,43 @@
+README.md
+  s_cd088636eb15e6::t_ddd7d2e3ee3af7 70-72
+.claude-plugin/plugin.json
+  s_6ca620290663f1::t_369735adff68d3 4
+.claude/hooks/put-gnu-tools-on-path.sh
+  s_fe9b7185bb1033::t_45635be10bf234 242-245
+.claude-plugin/marketplace.json
+  s_6ca620290663f1::t_544a83732f11f9 13
+.claude/hooks/put-gnu-tools-on-path.test.sh
+  s_fe9b7185bb1033::t_8383924365be25 375-387
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "80b83b2c3a433754a9dfc06ba6a7cbfd9c022fad",
+  "prompts": {},
+  "sessions": {
+    "s_6ca620290663f1": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "245f2e98-37cc-40a9-a41b-b289b0e63c53",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Morten Larsen <mortenl41@gmail.com>"
+    },
+    "s_cd088636eb15e6": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "9d4b8ee9-9fcd-4530-886f-71b1feb23eb2",
+        "model": "claude-fable-5-1"
+      },
+      "human_author": "Morten Larsen <mortenl41@gmail.com>"
+    },
+    "s_fe9b7185bb1033": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "s_fe9b7185bb1033",
+        "model": "unknown"
+      },
+      "human_author": "Morten Larsen <mortenl41@gmail.com>"
+    }
+  }
+}
