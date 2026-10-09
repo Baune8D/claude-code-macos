@@ -16,7 +16,7 @@ Two files do it, both under `.claude/`:
 Install it as a plugin, or copy the files in. [Both are below](#install).
 
 Nothing outside a Claude Code session changes. Your own terminal keeps zsh and the
-macOS tools.
+macOS tools. That split is also the cost: [the trade-off](#the-trade-off).
 
 ## The problem
 
@@ -189,6 +189,55 @@ written to the env file was set in the Bash tool and unset in a `PostToolUse` ho
 
 On Linux the hook is inert: without a Homebrew prefix it writes nothing and says
 nothing, and the plain names already resolve to GNU there.
+
+## The trade-off
+
+Leaving your terminal alone is also what this costs. A Mac set up this way has two
+userlands: bash and GNU in the Bash tool, zsh and macOS in your terminal. Two things
+follow from that, and neither has a clean fix.
+
+**A script written for macOS fails when the agent runs it.** A script the Bash tool
+starts inherits its PATH, whatever the shebang says: a `#!/usr/bin/env bash` and a
+`#!/bin/zsh` script both resolved `sed` to the gnubin. So `sed -i '' 's/a/b/' file`,
+which works in your terminal, fails for the agent, and a script written with GNU flags
+fails in your terminal. GNU sed 4.10 at least fails loudly: `sed: can't read s/a/b/: No
+such file or directory`, exit 2, and the file is left unchanged.
+
+What exists are workarounds:
+
+- Write forms both builds accept: `sed -i.bak 's/a/b/' file && rm file.bak`, or
+  redirect to a temporary file and `mv` it. That puts the cost on whoever writes the
+  script.
+- Pin a script that is macOS-only by design to `/usr/bin/sed`, or set PATH at its top.
+  That helps only where someone thought to pin.
+- Put the gnubin directories first in your terminal as well. That is the only one that
+  removes the split, and it changes your terminal, which is what this setup is built
+  not to do.
+
+The trade is made on purpose: an agent writes far more one-off commands than it runs
+scripts from the repository, and the one-off commands are where its GNU habits show.
+
+**`~/.zshenv` stops reaching the Bash tool.** zsh reads `.zshenv` for every shell,
+including the non-interactive `zsh -c` behind each Bash call, so with zsh as the Bash
+tool its exports are set again on every call. That holds even after a launch that
+strips the environment, as Claude Desktop's does. bash reads no startup file for
+`bash -c`. From a terminal you will not notice, because the Bash tool inherits the
+terminal's environment and the exports are already in it. From the desktop app, or
+anything else launchd starts, they are gone.
+
+Measured on 2.1.296 with `claude -p` under `env -i` and launchd's four-directory PATH
+(a launchd-like environment, not Claude Desktop itself), with a throwaway `ZDOTDIR`
+whose `.zshenv` logged each time it was sourced:
+
+| Bash tool | `.zshenv` sourced per call | Its variable | Its PATH prepend |
+| :-- | :-- | :-- | :-- |
+| zsh | yes | set | lost: the snapshot's `export PATH` runs after it |
+| bash | no | unset | — |
+
+`BASH_ENV`, bash's own startup file for non-interactive shells, did not bring it back.
+Set in the same environment, its file was sourced by other bash processes in the
+session, but the variable it exported was never set in the Bash tool. Why is not
+established.
 
 ## Tests
 
