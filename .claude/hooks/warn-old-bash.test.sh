@@ -7,7 +7,8 @@
 #
 # The hook asks `bash --version` through PATH, so every case puts a fake `bash` first on
 # PATH that prints the version line under test. The hook itself is started with the real
-# bash, resolved once before PATH is rearranged.
+# bash, resolved once before PATH is rearranged. A fake `uname` beside it decides whether
+# the hook believes it is on a Mac, so the suite runs the same on any machine.
 
 set -u
 
@@ -18,6 +19,15 @@ PASS=0
 FAIL=0
 WORK="$(mktemp -d)"
 trap 'rm -rf "$WORK"' EXIT
+
+# Two bin dirs a case puts on PATH: one whose `uname` answers Darwin, one Linux. MAC is on
+# the default PATH; the off-a-Mac cases swap it for LINUX.
+MAC="$WORK/mac"
+LINUX="$WORK/linux"
+mkdir -p "$MAC" "$LINUX"
+printf '#!/bin/sh\necho Darwin\n' > "$MAC/uname"
+printf '#!/bin/sh\necho Linux\n' > "$LINUX/uname"
+chmod +x "$MAC/uname" "$LINUX/uname"
 
 # fake_bash <version line> — a directory whose `bash` prints that line for --version.
 fake_bash() {
@@ -38,13 +48,13 @@ other_bash() {
     OTHER="$dir/bash"
 }
 
-# run_hook [PATH=...] [CLAUDE_CODE_SHELL=...] — runs the hook under a PATH that starts with
-# the fake bash. The second argument, when given, is the override Claude Code was told to
+# run_hook [PATH=...] [CLAUDE_CODE_SHELL=...] — runs the hook on a Mac, under a PATH that
+# starts with the fake bash. The second argument, when given, is the override Claude Code was told to
 # run; without it the variable is absent, which is the bare-name default.
 run_hook() {
     local out vars=()
     [[ -n "${2:-}" ]] && vars+=("CLAUDE_CODE_SHELL=$2")
-    out=$(env -i PATH="${1:-$FAKE:$JQ_DIR:/usr/bin:/bin}" "${vars[@]}" \
+    out=$(env -i PATH="${1:-$FAKE:$MAC:$JQ_DIR:/usr/bin:/bin}" "${vars[@]}" \
         "$BASH_BIN" "$HOOK" 2>"$WORK/stderr" </dev/null)
     STATUS=$?
     STDOUT="$out"
@@ -114,12 +124,22 @@ ok_and_silent 'a future bash 6'
 # happens to run under, which need not be the same binary.
 # shellcheck disable=SC2016  # the child bash expands $BASH_VERSION, not this one
 real_version=$("$BASH_BIN" -c 'printf %s "$BASH_VERSION"')
-run_hook "$JQ_DIR:$(dirname "$BASH_BIN"):/usr/bin:/bin"
+run_hook "$MAC:$JQ_DIR:$(dirname "$BASH_BIN"):/usr/bin:/bin"
 if [[ "${real_version%%.*}" -ge 5 ]]; then
     ok_and_silent 'the real bash on PATH'
 else
     ok_with_hint 'the real bash on PATH' 'not 5' "$real_version"
 fi
+
+# Off a Mac an old bash is the platform's own — RHEL 8's 4.4, an older Git for Windows' —
+# and `brew install bash` is no fix for it.
+fake_bash 'GNU bash, version 4.4.20(1)-release (x86_64-redhat-linux-gnu)'
+run_hook "$FAKE:$LINUX:$JQ_DIR:/usr/bin:/bin"
+ok_and_silent 'bash 4.4 on Linux'
+
+fake_bash 'something that is not a version line'
+run_hook "$FAKE:$LINUX:$JQ_DIR:/usr/bin:/bin" /nonexistent/bash
+ok_and_silent 'override to a missing shell on Linux'
 
 # --- hints ----------------------------------------------------------------------------
 
@@ -170,8 +190,8 @@ ok_with_hint 'override to a missing shell' 'unreadable' 'not 5'
 expect_dev 'override to a missing shell' '/nonexistent/bash' 'reports no version'
 
 # Without jq the line still reaches the agent as plain text. The hook needs nothing but
-# the bash it is asking about, so PATH is the fake alone.
-fake_bash 'GNU bash, version 3.2.57(1)-release (arm64-apple-darwin25)'; run_hook "$FAKE"
+# `uname` and the bash it is asking about, so PATH is those two alone.
+fake_bash 'GNU bash, version 3.2.57(1)-release (arm64-apple-darwin25)'; run_hook "$FAKE:$MAC"
 [[ "$STATUS" -eq 0 && -z "$STDERR" && "$STDOUT" == *'3.2.57'* && "$STDOUT" != '{'* ]] && verdict=yes || verdict=no
 pass_if "$verdict" 'no jq: plain one-line hint' "stdout: $STDOUT stderr: $STDERR"
 

@@ -139,6 +139,19 @@ use `$CLAUDE_PROJECT_DIR`, which Claude Code sets for every hook, so they work f
 checkout location. This is the whole fix in one step, and it travels with the repository
 to everyone who clones it.
 
+That includes the people who don't use a Mac. The hooks are inert off a Mac
+([below](#off-a-mac)), but a `settings.json` cannot make its `env` block depend on the OS.
+On Linux the block is harmless: the Bash tool becomes bash for someone whose login shell
+is zsh or fish, and that's all. On Windows it is a risk. Claude Code accepts a
+`CLAUDE_CODE_SHELL` that contains `bash` whenever `bash --version` succeeds, and it
+resolves a bare `bash` through PATH, where `C:\Windows\System32\bash.exe`, the WSL
+launcher, usually comes before Git Bash. That way the Bash tool would end up in WSL. This
+comes from reading the 2.1.296 binary and has not been tested on Windows. So copy the
+files in when the whole team is on Macs. For a team on mixed OSes, commit only the `hooks`
+block, and let each Mac user add the `env` block to their own `~/.claude/settings.json` or
+to the gitignored `.claude/settings.local.json`. `warn-shell-not-bash.sh` tells them if
+they haven't.
+
 Both at once is harmless, not clever: each copy of the hook reads its own PATH, which is
 Claude Code's and carries neither prepend, so both write one. The Bash tool ends up with
 the gnubin directories twice on PATH, resolving to the same builds.
@@ -187,8 +200,22 @@ macOS ones.
 from Claude Code's own environment and see none of this. Measured on 2.1.263: a variable
 written to the env file was set in the Bash tool and unset in a `PostToolUse` hook.
 
-On Linux the hook is inert: without a Homebrew prefix it writes nothing and says
-nothing, and the plain names already resolve to GNU there.
+## Off a Mac
+
+All three hooks check `uname -s` first and exit silently unless it says `Darwin`: no line
+in `CLAUDE_ENV_FILE`, nothing for the agent, nothing for you.
+
+- **Linux**: the plain names are already GNU, and `Platform: linux` tells the model so.
+  Even with Linuxbrew's formulas installed, nothing is prepended. A distribution's bash
+  4.4 is not reported either, because `brew install bash` is not how you fix it.
+- **Windows**: Claude Code runs a hook's command through Git Bash, with Git Bash's own
+  directory first on PATH, so `bash "$CLAUDE_PROJECT_DIR/…"` works there and `uname -s`
+  says `MINGW64_NT-…`. If Git Bash is not installed, Claude Code cannot run the hooks at
+  all and reports an error for each one at session start. The same machine has no Bash
+  tool either, and nothing in a hook's config can limit it to one OS.
+
+The `env` block is the one part that does not switch itself off.
+[Above](#as-files-in-a-repository) is what that means for a repository you share.
 
 ## The trade-off
 

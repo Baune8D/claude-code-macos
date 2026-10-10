@@ -51,9 +51,14 @@
 # the script (2.1.288, auto mode). The PATH alone does not make the tools GNU in practice:
 # the agent also has to know they are. The line costs a few dozen tokens per session, and
 # it states a fact about the environment rather than an instruction. Only the commands a
-# bare name reaches are named, so not `find` or `grep` (see above). Inert off a Mac — the
-# images, where `Platform: linux` already says GNU. Always exits 0: a missing tool is not
-# worth failing a session start over.
+# bare name reaches are named, so not `find` or `grep` (see above). Always exits 0: a
+# missing tool is not worth failing a session start over.
+#
+# Inert off a Mac: it writes nothing and says nothing. On Linux the plain names are GNU
+# already and `Platform: linux` says so; Linuxbrew's formulas would only swap one GNU build
+# for another. On Windows Claude Code runs the hook through Git Bash, whose tools are GNU
+# too. A repository that carries these files is opened on all three, and only the Mac
+# needs anything.
 #
 # Where it cannot deliver — a formula missing, no Homebrew, or a Claude Code that supplies
 # no CLAUDE_ENV_FILE — the agent's line also names the commands that stayed the macOS
@@ -179,17 +184,14 @@ tell() {
     fi
 }
 
-on_mac=no
-[[ "$(uname -s 2>/dev/null)" == Darwin ]] && on_mac=yes
+[[ "$(uname -s 2>/dev/null)" == Darwin ]] || exit 0
 
 # Without CLAUDE_ENV_FILE — a Claude Code too old to supply it, or an event that does not
-# carry one — there is nothing to write the PATH into, and on a Mac every tool stays the
-# macOS build. Said once, so the agent does not go on assuming GNU tools.
+# carry one — there is nothing to write the PATH into, and every tool stays the macOS
+# build. Said once, so the agent does not go on assuming GNU tools.
 if [[ -z "${CLAUDE_ENV_FILE:-}" ]]; then
-    if [[ "$on_mac" == yes ]]; then
-        hint "$(agent_line "${formulas[@]}")" \
-            'Claude Code is too old for these hooks. Fix: claude update'
-    fi
+    hint "$(agent_line "${formulas[@]}")" \
+        'Claude Code is too old for these hooks. Fix: claude update'
     exit 0
 fi
 
@@ -210,12 +212,9 @@ for candidate in "${candidates[@]}"; do
 done
 
 if [[ -z "$prefix" ]]; then
-    # No Homebrew on a Mac means every one of the tools is the macOS build. Off a Mac
-    # there is nothing to say.
-    if [[ "$on_mac" == yes ]]; then
-        hint "$(agent_line "${formulas[@]}")" \
-            'Homebrew is missing. Fix: install it from https://brew.sh'
-    fi
+    # No Homebrew means every one of the tools is the macOS build.
+    hint "$(agent_line "${formulas[@]}")" \
+        'Homebrew is missing. Fix: install it from https://brew.sh'
     exit 0
 fi
 
@@ -270,8 +269,6 @@ fi
 
 # Present counts whether this run prepended it or it already won: either way the bare name
 # is GNU for the rest of the session.
-[[ "$on_mac" == yes ]] || exit 0
-
 said=''
 [[ "${#present[@]}" -gt 0 ]] && said=$(gnu_line "${present[@]}")
 

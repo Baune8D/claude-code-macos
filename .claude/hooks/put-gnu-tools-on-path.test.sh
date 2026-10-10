@@ -296,11 +296,11 @@ ok_with_hint 'Homebrew without the GNU formulas' 'date, stat, command find, xarg
 expect_dev 'Homebrew without the GNU formulas' 'brew install coreutils findutils gawk gnu-sed gnu-tar gnu-which grep'
 expect_nothing_written 'Homebrew without the GNU formulas: writes nothing'
 
-# Off a Mac, a missing formula is not worth a line: the plain names already resolve GNU
-# there, whatever Linuxbrew has or has not got.
+# Off a Mac the hook is inert, Homebrew or not: the plain names already resolve GNU there,
+# and Linuxbrew's gnubin would only put one GNU build ahead of another.
 fresh; installed coreutils; run_hook PATH="$WORK/linux:$JQ_DIR:/usr/bin:/bin"
 quiet_and_ok 'missing formulas, not a Mac'
-expect_written 'missing formulas, not a Mac: still writes what is there' "$(gnubin coreutils)"
+expect_nothing_written 'missing formulas, not a Mac: writes nothing'
 
 # All already on PATH — nothing to add, so not even an empty prepend. The agent is still
 # told: it cannot see that a parent session or the terminal arranged the PATH.
@@ -313,6 +313,7 @@ expect_nothing_written 'all tools already on PATH: writes nothing'
 # Off a Mac, all installed is still silent: `Platform: linux` already says GNU.
 fresh; installed coreutils findutils gawk gnu-sed gnu-tar gnu-which grep; run_hook PATH="$WORK/linux:$JQ_DIR:/usr/bin:/bin"
 quiet_and_ok 'all formulas installed, not a Mac'
+expect_nothing_written 'all formulas installed, not a Mac: writes nothing'
 
 # On PATH but BEHIND /usr/bin is not "already on PATH": that sed has lost the lookup, and
 # the hook has to prepend it as if it were absent.

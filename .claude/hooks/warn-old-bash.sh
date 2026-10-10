@@ -3,10 +3,9 @@
 # SessionStart: says so when the bash the Bash tool runs is older than 5.
 #
 # .claude/settings.json sets CLAUDE_CODE_SHELL to a bare `bash`, so the Bash tool runs
-# whichever bash is first on PATH — Homebrew's on a Mac that has run `brew install bash`,
-# the distribution's on Linux, and both are 5. A Mac where Homebrew is not ahead of /bin
-# gets Apple's 3.2 instead, and nothing says
-# so: the shell starts, and `mapfile`, `${x^^}` and associative arrays fail one at a time,
+# whichever bash is first on PATH — Homebrew's on a Mac that has run `brew install bash`.
+# A Mac where Homebrew is not ahead of /bin gets Apple's 3.2 instead, and nothing says so:
+# the shell starts, and `mapfile`, `${x^^}` and associative arrays fail one at a time,
 # halfway through whatever was being done.
 #
 # What it asks for a version is `CLAUDE_CODE_SHELL` itself, falling back to a bare `bash`,
@@ -31,6 +30,10 @@
 # `bash <path>`, so that failure happens before it runs — and it does not happen on a Mac,
 # which always has Apple's /bin/bash. An override naming a shell that does not exist is a
 # different matter, and reads here as a version that cannot be parsed.
+#
+# Inert off a Mac, like the other two hooks. A Linux distribution's bash is whatever that
+# distribution ships — 4.4 on RHEL 8 — and an older Git for Windows ships 4.4 too. That is
+# the bash the model expects there, and `brew install bash` is the fix for none of them.
 
 set -u
 
@@ -47,6 +50,8 @@ hint() {
         printf '%s\n' "$1"
     fi
 }
+
+[[ "$(uname -s 2>/dev/null)" == Darwin ]] || exit 0
 
 # The shell Claude Code was told to run, or the bare name it defaults to.
 shell="${CLAUDE_CODE_SHELL:-bash}"
