@@ -321,8 +321,9 @@ fresh; installed coreutils gnu-sed; run_hook PATH="$WORK/mac:$JQ_DIR:/usr/bin:$(
 expect_written 'a gnubin behind /usr/bin on PATH is prepended anyway' "$(gnubin coreutils):$(gnubin gnu-sed)"
 
 # /bin is a system-tools directory on a Mac as much as /usr/bin — date, ls and cp live
-# there — so a gnubin behind /bin has lost too.
-fresh; installed gnu-sed; run_hook PATH="/bin:$(gnubin gnu-sed):$WORK/mac:$JQ_DIR:/usr/bin"
+# there — so a gnubin behind /bin has lost too. The fake uname goes ahead of /bin, or a
+# Linux machine's own /bin/uname answers and the hook stands down before the check.
+fresh; installed gnu-sed; run_hook PATH="$WORK/mac:/bin:$(gnubin gnu-sed):$JQ_DIR:/usr/bin"
 expect_written 'a gnubin behind /bin on PATH is prepended anyway' "$(gnubin gnu-sed)"
 
 # Ahead of /usr/bin is the case that counts as present — and so is a PATH with no /usr/bin
