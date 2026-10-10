@@ -1,0 +1,39 @@
+.claude/hooks/put-gnu-tools-on-path.test.sh
+  s_37fcb75e2725bb::t_ddf8d45c06d808 299-300,303,316
+.claude-plugin/plugin.json
+  s_6ca620290663f1::t_369735adff68d3 4
+.claude/hooks/put-gnu-tools-on-path.sh
+  s_37fcb75e2725bb::t_ea939514159ef2 54-61,187,190-191,193-194,215-217
+.claude/hooks/warn-old-bash.test.sh
+  s_37fcb75e2725bb::t_41e35d24a5993f 10-11,23-31,51-52,57,127,134-143,193-194
+README.md
+  s_37fcb75e2725bb::t_8a2defcab9438f 142-154,203-218
+.claude/hooks/warn-old-bash.sh
+  s_37fcb75e2725bb::t_f998dec9af7639 6-8,33-36,54-55
+.claude-plugin/marketplace.json
+  s_6ca620290663f1::t_544a83732f11f9 13
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "0e6416f25fad3383c130bc1a973a0ead50df297f",
+  "prompts": {},
+  "sessions": {
+    "s_37fcb75e2725bb": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1d70fb82-c1ee-420a-8b2f-c1e700f1d907",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Morten Larsen <mortenl41@gmail.com>"
+    },
+    "s_6ca620290663f1": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "245f2e98-37cc-40a9-a41b-b289b0e63c53",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Morten Larsen <mortenl41@gmail.com>"
+    }
+  }
+}
