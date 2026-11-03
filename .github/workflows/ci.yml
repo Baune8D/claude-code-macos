@@ -12,6 +12,8 @@ jobs:
       matrix:
         os: [ubuntu-24.04, macos-latest]
     runs-on: ${{ matrix.os }}
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v7
 
@@ -30,6 +32,8 @@ jobs:
 
   shellcheck:
     runs-on: ubuntu-24.04
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v7
       - run: shellcheck .claude/hooks/*.sh
