@@ -1,5 +1,9 @@
 # claude-code-macos
 
+[![CI](https://github.com/Baune8D/claude-code-macos/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/Baune8D/claude-code-macos/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/Baune8D/claude-code-macos)](https://github.com/Baune8D/claude-code-macos/releases)
+[![License: MIT](https://img.shields.io/github/license/Baune8D/claude-code-macos)](https://github.com/Baune8D/claude-code-macos/blob/main/LICENSE)
+
 Makes Claude Code's Bash tool behave like Linux on a Mac: bash 5 instead of zsh, and GNU
 `sed`, `date`, `stat`, `awk`, `tar`, `which`, `xargs` and friends instead of the BSD
 builds.
