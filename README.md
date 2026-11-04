@@ -281,3 +281,7 @@ bash .claude/hooks/warn-old-bash.test.sh
 Every case runs against a throwaway Homebrew prefix under `mktemp` and a fake `uname`,
 so the suites never read the formulas on the machine they run on or write to a real
 `CLAUDE_ENV_FILE`.
+
+## License
+
+[MIT](LICENSE)
